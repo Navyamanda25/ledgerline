@@ -208,24 +208,28 @@ router.get('/:id/statement', authenticateToken, async (req, res) => {
       [id]
     )
 
-    // Fetch refused attempts involving this account.
-    // Refused attempts do not change the account balance.
+    // Fetch refused attempts with the initiator's details.
+    // LEFT JOIN also preserves audit events if the user record is unavailable.
     const auditResult = await pool.query(
       `SELECT
-         id,
-         event_type,
-         outcome,
-         details,
-         actor_user_id,
-         created_at
-       FROM audit_events
-       WHERE outcome = 'refused'
-         AND event_type = 'transaction.refused'
+         ae.id,
+         ae.event_type,
+         ae.outcome,
+         ae.details,
+         ae.actor_user_id,
+         u.full_name AS initiated_by_name,
+         u.email AS initiated_by_email,
+         ae.created_at
+       FROM audit_events ae
+       LEFT JOIN users u
+         ON u.id = ae.actor_user_id
+       WHERE ae.outcome = 'refused'
+         AND ae.event_type = 'transaction.refused'
          AND (
-           details ->> 'sourceAccountId' = $1
-           OR details ->> 'destinationAccountId' = $1
+           ae.details ->> 'sourceAccountId' = $1
+           OR ae.details ->> 'destinationAccountId' = $1
          )
-       ORDER BY created_at ASC, id ASC`,
+       ORDER BY ae.created_at ASC, ae.id ASC`,
       [id]
     )
 
@@ -253,8 +257,8 @@ router.get('/:id/statement', authenticateToken, async (req, res) => {
       entryType: 'refused',
       amountPaise: event.details.amountPaise || null,
       initiatedBy: event.actor_user_id,
-      initiatedByName: null,
-      initiatedByEmail: null,
+      initiatedByName: event.initiated_by_name,
+      initiatedByEmail: event.initiated_by_email,
       status: 'refused',
       reason: event.details.reason || 'Transaction refused',
       createdAt: event.created_at,
