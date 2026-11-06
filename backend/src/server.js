@@ -5,8 +5,10 @@ const helmet = require('helmet')
 require('dotenv').config()
 
 const pool = require('./config/db')
+
 const authRoutes = require('./routes/auth.routes')
 const transactionRoutes = require('./routes/transaction.routes')
+const accountRoutes = require('./routes/account.routes')
 
 const app = express()
 
@@ -26,6 +28,7 @@ app.use(express.json({ limit: '10kb' }))
 // HEALTH CHECK ROUTES
 // ============================================
 
+// Backend health check
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -34,6 +37,7 @@ app.get('/api/health', (req, res) => {
   })
 })
 
+// Database health check
 app.get('/api/db-health', async (req, res) => {
   try {
     const result = await pool.query(
@@ -62,6 +66,7 @@ app.get('/api/db-health', async (req, res) => {
 
 app.use('/api/auth', authRoutes)
 app.use('/api/transactions', transactionRoutes)
+app.use('/api/accounts', accountRoutes)
 
 // ============================================
 // UNKNOWN ROUTES
