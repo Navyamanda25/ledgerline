@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react'
 import {
   Wallet, ShieldCheck, LayoutDashboard, CreditCard,
@@ -8,7 +7,7 @@ import {
 } from 'lucide-react'
 import './App.css'
 
-const API_URL = 'http://localhost:5000'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 const SYSTEM_ACCOUNT_ID = '3'
 
 function formatINR(paise) {
@@ -151,6 +150,11 @@ function App() {
   const [statementLoading, setStatementLoading] = useState(false)
   const [statementError, setStatementError] = useState('')
 
+  // Audit Trail state
+  const [auditEvents, setAuditEvents] = useState([])
+  const [auditLoading, setAuditLoading] = useState(false)
+  const [auditError, setAuditError] = useState('')
+
   async function loadAccounts() {
     const token = sessionStorage.getItem('ledgerline_token')
 
@@ -248,6 +252,63 @@ function App() {
     }
   }, [activePage, selectedStatementAccount])
 
+  // ============================================
+  // LOAD AUDIT EVENTS
+  // ============================================
+
+  async function loadAuditEvents() {
+    const token = sessionStorage.getItem('ledgerline_token')
+
+    if (!token) {
+      setAuditError('Your session has expired. Please sign in again.')
+      return
+    }
+
+    setAuditLoading(true)
+    setAuditError('')
+
+    try {
+      const response = await fetch(`${API_URL}/api/audit`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      const data = await response.json()
+
+      if (response.status === 401) {
+        handleLogout()
+        setAuditError('Your session has expired. Please sign in again.')
+        return
+      }
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Unable to load audit events.')
+      }
+
+      setAuditEvents(data.events || [])
+    } catch (error) {
+      setAuditError(
+        error.message === 'Failed to fetch'
+          ? 'Cannot connect to the backend. Check whether the server is running.'
+          : error.message
+      )
+    } finally {
+      setAuditLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (
+      activePage === 'Audit trail' &&
+      (user?.role === 'admin' || user?.role === 'auditor')
+    ) {
+      loadAuditEvents()
+    }
+  }, [activePage, user])
+
+  // ============================================
+  // LOGIN
+  // ============================================
+
   async function handleSubmit(event) {
     event.preventDefault()
     setLoginMessage('')
@@ -286,6 +347,10 @@ function App() {
     }
   }
 
+  // ============================================
+  // LOGOUT
+  // ============================================
+
   function handleLogout() {
     sessionStorage.removeItem('ledgerline_token')
     sessionStorage.removeItem('ledgerline_user')
@@ -299,6 +364,8 @@ function App() {
     setStatementData([])
     setStatementAccount(null)
     setSelectedStatementAccount('')
+    setAuditEvents([])
+    setAuditError('')
     setActivePage('Overview')
   }
 
@@ -306,6 +373,10 @@ function App() {
     setTransactionMessage('')
     setTransactionSuccess(false)
   }
+
+  // ============================================
+  // TRANSACTION PROCESSING
+  // ============================================
 
   async function handleTransaction(event) {
     event.preventDefault()
@@ -404,6 +475,10 @@ function App() {
     }
   }
 
+  // ============================================
+  // DERIVED DATA
+  // ============================================
+
   const totalBalance = accounts.reduce(
     (total, account) => total + Number(account.balance_paise || 0),
     0
@@ -420,6 +495,10 @@ function App() {
       account.is_active &&
       String(account.account_type || '').toLowerCase() !== 'system'
   )
+
+  // ============================================
+  // LOGIN SCREEN
+  // ============================================
 
   if (!user) {
     return (
@@ -537,12 +616,18 @@ function App() {
     )
   }
 
+  // ============================================
+  // ROLE-BASED NAVIGATION
+  // ============================================
+
   const navigation = [
     { name: 'Overview', icon: LayoutDashboard },
     { name: 'My accounts', icon: CreditCard },
     { name: 'Transactions', icon: ArrowLeftRight },
     { name: 'Statements', icon: FileText },
-    { name: 'Audit trail', icon: Activity },
+    ...(user.role === 'admin' || user.role === 'auditor'
+      ? [{ name: 'Audit trail', icon: Activity }]
+      : []),
   ]
 
   return (
@@ -614,11 +699,14 @@ function App() {
               if (activePage === 'Statements' && selectedStatementAccount) {
                 loadStatement(selectedStatementAccount)
               }
+              if (activePage === 'Audit trail') {
+                loadAuditEvents()
+              }
             }}
-            disabled={accountsLoading || statementLoading}
+            disabled={accountsLoading || statementLoading || auditLoading}
             className="flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50"
           >
-            <RefreshCw size={16} className={accountsLoading || statementLoading ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={accountsLoading || statementLoading || auditLoading ? 'animate-spin' : ''} />
             Refresh
           </button>
         </header>
@@ -631,6 +719,8 @@ function App() {
             </button>
           </div>
         )}
+
+        {/* OVERVIEW */}
 
         {activePage === 'Overview' && (
           <>
@@ -673,6 +763,8 @@ function App() {
           </>
         )}
 
+        {/* MY ACCOUNTS */}
+
         {activePage === 'My accounts' && (
           <div>
             <h3 className="text-xl font-semibold">Your accounts</h3>
@@ -682,6 +774,8 @@ function App() {
             <AccountList accounts={accounts} loading={accountsLoading} />
           </div>
         )}
+
+        {/* TRANSACTIONS */}
 
         {activePage === 'Transactions' && (
           <div className="max-w-3xl">
@@ -870,6 +964,8 @@ function App() {
           </div>
         )}
 
+        {/* STATEMENTS */}
+
         {activePage === 'Statements' && (
           <div className="space-y-6">
             <div>
@@ -1005,12 +1101,15 @@ function App() {
                             const status = String(entry.status || 'success').toLowerCase()
                             const refused = status === 'refused'
                             const debit = entryType === 'debit'
+
                             const initiator =
                               entry.initiator?.name ||
                               entry.initiator?.fullName ||
                               entry.initiator?.email ||
                               entry.initiatorName ||
                               entry.initiatorEmail ||
+                              entry.initiatedByName ||
+                              entry.initiatedByEmail ||
                               '—'
 
                             return (
@@ -1080,17 +1179,143 @@ function App() {
           </div>
         )}
 
-        {activePage === 'Audit trail' && (
-          <div className="rounded-2xl border border-slate-800 bg-[#111827] p-8">
-            <div className="mb-4 inline-flex rounded-xl bg-emerald-500/10 p-3">
-              <Activity size={24} className="text-emerald-400" />
+        {/* AUDIT TRAIL - ADMIN AND AUDITOR ONLY */}
+
+        {activePage === 'Audit trail' &&
+          (user.role === 'admin' || user.role === 'auditor') && (
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-emerald-400">
+                    SECURITY & ACCOUNTABILITY
+                  </p>
+                  <h3 className="mt-2 text-2xl font-semibold">Audit trail</h3>
+                  <p className="mt-2 text-sm text-slate-400">
+                    Read-only record of successful, refused and failed activities.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-800 bg-[#111827] px-4 py-3 text-sm text-slate-300">
+                  {auditEvents.length} events loaded
+                </div>
+              </div>
+
+              {auditError && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle size={18} />
+                    {auditError}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={loadAuditEvents}
+                    className="mt-2 underline"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+
+              <div className="overflow-hidden rounded-2xl border border-slate-800 bg-[#111827]">
+                <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+                  <div>
+                    <h4 className="font-semibold">Recorded events</h4>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Latest 200 events, newest first
+                    </p>
+                  </div>
+                  <span className="text-xs text-slate-500">Read only</span>
+                </div>
+
+                {auditLoading ? (
+                  <div className="py-12 text-center text-slate-400">
+                    <RefreshCw size={24} className="mx-auto mb-3 animate-spin text-emerald-400" />
+                    Loading audit events...
+                  </div>
+                ) : auditEvents.length === 0 && !auditError ? (
+                  <div className="py-12 text-center">
+                    <Activity size={30} className="mx-auto mb-3 text-slate-500" />
+                    <p className="font-medium">No audit events found</p>
+                    <p className="mt-2 text-sm text-slate-500">
+                      Recorded system activities will appear here.
+                    </p>
+                  </div>
+                ) : auditEvents.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[900px] text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-700 text-xs uppercase text-slate-500">
+                          <th className="px-5 py-4">Date & time</th>
+                          <th className="px-5 py-4">Actor</th>
+                          <th className="px-5 py-4">Activity</th>
+                          <th className="px-5 py-4">Outcome</th>
+                          <th className="px-5 py-4">Event details</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {auditEvents.map(event => {
+                          const outcome = String(event.outcome || '').toLowerCase()
+
+                          const outcomeClass = outcome === 'success'
+                            ? 'bg-emerald-500/10 text-emerald-400'
+                            : outcome === 'refused'
+                              ? 'bg-amber-500/10 text-amber-300'
+                              : 'bg-red-500/10 text-red-400'
+
+                          return (
+                            <tr
+                              key={event.id}
+                              className="border-b border-slate-800/80 align-top hover:bg-slate-800/30"
+                            >
+                              <td className="whitespace-nowrap px-5 py-4 text-slate-400">
+                                {formatDate(event.created_at)}
+                                <div className="mt-1 text-xs text-slate-600">
+                                  Event #{event.id}
+                                </div>
+                              </td>
+
+                              <td className="px-5 py-4">
+                                <div className="font-medium">
+                                  {event.actor_name || 'System / unavailable user'}
+                                </div>
+                                <div className="mt-1 text-xs text-slate-500">
+                                  {event.actor_email ||
+                                    (event.actor_user_id
+                                      ? `User ID: ${event.actor_user_id}`
+                                      : 'No user ID')}
+                                </div>
+                              </td>
+
+                              <td className="px-5 py-4">
+                                <span className="font-medium text-slate-200">
+                                  {event.event_type || 'Unknown event'}
+                                </span>
+                              </td>
+
+                              <td className="px-5 py-4">
+                                <span className={`rounded-full px-2.5 py-1 text-xs capitalize ${outcomeClass}`}>
+                                  {outcome || 'unknown'}
+                                </span>
+                              </td>
+
+                              <td className="max-w-md px-5 py-4">
+                                <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-slate-400">
+                                  {JSON.stringify(event.details || {}, null, 2)}
+                                </pre>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+              </div>
             </div>
-            <h3 className="text-xl font-semibold">Audit trail</h3>
-            <p className="mt-2 text-sm text-slate-400">
-              The audit trail interface will be connected next.
-            </p>
-          </div>
-        )}
+          )}
+
+        {/* SECURITY FOOTER */}
 
         <div className="mt-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-[#111827] p-5">
           <div className="flex items-center gap-3">
@@ -1099,7 +1324,9 @@ function App() {
             </div>
             <div>
               <p className="text-sm font-medium">Secure account access</p>
-              <p className="mt-1 text-xs text-slate-500">Signed in as {user.role}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Signed in as {user.role}
+              </p>
             </div>
           </div>
 
