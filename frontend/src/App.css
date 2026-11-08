@@ -1,35 +1,4 @@
-
-/* =========================================
-   LEDGERLINE - APPLICATION STYLES
-========================================= */
-
-/* Remove default Vite starter styling */
-
 #root {
   width: 100%;
   min-height: 100vh;
-  margin: 0;
-  padding: 0;
-  text-align: left;
-}
-
-/* Global application layout */
-
-.app-container {
-  width: 100%;
-  min-height: 100vh;
-}
-
-/* Remove default button appearance */
-
-button {
-  font-family: inherit;
-}
-
-/* Responsive layout support */
-
-@media (max-width: 768px) {
-  #root {
-    width: 100%;
-  }
 }

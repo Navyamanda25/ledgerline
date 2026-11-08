@@ -1,39 +1,220 @@
 
 @import "tailwindcss";
 
+@theme {
+  /* Royal Blue */
+  --color-royal: #007BA7;
+  --color-royal-dark: #005675;
+
+  /* Aurora Teal */
+  --color-pure-white: #FFFFFF;
+  --color-sunshine: #00F3D2;
+
+  /* Existing App.jsx colour names */
+  --color-mocha: #0A0A0A;
+  --color-mocha-dark: #000000;
+  --color-lavender: #00F3D2;
+  --color-silver: #FFFFFF;
+
+  /* Navy */
+  --color-navy-900: #273869;
+  --color-navy-800: #405881;
+
+  /* Gray */
+  --color-gray-50: #EDF1F4;
+
+  /* Champagne Gold */
+  --color-gold: #C9A45C;
+  --color-gold-light: #E5C98B;
+  --color-gold-dark: #8F7138;
+
+  /* Text */
+  --color-ink: #0A0A0A;
+  --color-muted: #64748B;
+  --color-line: #E5E7EB;
+
+  /* Status */
+  --color-good: #16A34A;
+  --color-bad: #DC2626;
+  --color-warn: #D97706;
+}
+
 :root {
-  font-family: Inter, "Segoe UI", system-ui, sans-serif;
-  color: #f9fafb;
-  background: #0b1120;
+  font-family: Inter, Arial, sans-serif;
+  color: #0A0A0A;
+  background: #FFFFFF;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html,
-body,
-#root {
-  width: 100%;
-  min-width: 320px;
-  min-height: 100%;
 }
 
 body {
+  margin: 0;
+  min-width: 320px;
   min-height: 100vh;
-  background: #0b1120;
+
+  /* LIGHT PREMIUM BACKGROUND */
+  background:
+    radial-gradient(
+      ellipse at 50% 45%,
+      rgba(0, 123, 167, 0.045) 0%,
+      rgba(0, 243, 210, 0.025) 25%,
+      rgba(39, 56, 105, 0.015) 45%,
+      rgba(201, 164, 92, 0.035) 65%,
+      transparent 80%
+    ),
+    #FFFFFF;
+}
+
+main.bg-lavender {
+  background-color: transparent;
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
 button {
   cursor: pointer;
+}
+
+/* GOLD FINTECH CARD BORDERS */
+
+.gold-border {
+  border: 1px solid #C9A45C;
+  box-shadow: 0 3px 14px rgba(201, 164, 92, 0.12);
+}
+
+.gold-border-soft {
+  border: 1px solid rgba(201, 164, 92, 0.45);
+}
+
+/* GOLD TEXT AND ICONS */
+
+.gold-text {
+  color: #8F7138;
+}
+
+.gold-icon {
+  color: #C9A45C;
+}
+
+/* PREMIUM CARD HOVER */
+
+.gold-hover {
+  transition: all 0.25s ease;
+}
+
+.gold-hover:hover {
+  border-color: #C9A45C;
+  box-shadow: 0 5px 22px rgba(201, 164, 92, 0.25);
+  transform: translateY(-2px);
+}
+
+/* GOLD DIVIDERS */
+
+.gold-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #C9A45C,
+    #E5C98B,
+    transparent
+  );
+  border: none;
+}
+
+/* GOLD TOP ACCENT */
+
+.gold-top {
+  border-top: 3px solid #C9A45C;
+}
+
+/* PREMIUM GOLD BADGE */
+
+.gold-badge {
+  background: linear-gradient(
+    135deg,
+    #F7EACB,
+    #E5C98B
+  );
+  color: #273869;
+  border: 1px solid #C9A45C;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-weight: 600;
+}
+
+/* AURORA TEAL BUTTON */
+
+.btn-primary {
+  background: #00F3D2;
+  color: #0A0A0A;
+  border: 1px solid #00F3D2;
+  font-weight: 600;
+  transition: all 0.25s ease;
+}
+
+.btn-primary:hover {
+  background: #00CDB3;
+  box-shadow: 0 0 14px rgba(0, 243, 210, 0.25);
+}
+
+/* GOLD BUTTON CLICK / KEYBOARD FOCUS */
+
+button:focus,
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #C9A45C;
+  outline-offset: 3px;
+  box-shadow: 0 0 12px rgba(201, 164, 92, 0.35);
+}
+
+/* GOLD INPUT FOCUS */
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #C9A45C !important;
+  box-shadow: 0 0 0 2px rgba(201, 164, 92, 0.25);
+}
+
+/* GOLD DROPDOWN FOCUS */
+
+select:focus-visible {
+  border-color: #C9A45C;
+}
+
+/* GOLD CLICKABLE CARD FOCUS */
+
+[role="button"]:focus,
+[tabindex="0"]:focus {
+  outline: 2px solid #C9A45C;
+  outline-offset: 2px;
+  box-shadow: 0 0 14px rgba(201, 164, 92, 0.25);
+  transition: all 0.2s ease;
+}
+
+/* GOLD ACTIVE BUTTON */
+
+button:active {
+  border-color: #C9A45C;
+  box-shadow: 0 0 12px rgba(201, 164, 92, 0.4);
+}
+
+/* TEXT SELECTION */
+
+::selection {
+  background: #00F3D2;
+  color: #0A0A0A;
 }
