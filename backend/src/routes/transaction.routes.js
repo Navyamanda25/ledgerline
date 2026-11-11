@@ -1,4 +1,3 @@
-
 const express = require('express')
 const { z } = require('zod')
 
@@ -12,7 +11,7 @@ const transactionSchema = z.object({
   type: z.enum(['deposit', 'withdrawal', 'transfer']),
   sourceAccountId: z.string().regex(/^[1-9]\d*$/),
   destinationAccountId: z.string().regex(/^[1-9]\d*$/),
-  amountPaise: z.string().regex(/^[1-9]\d*$/),
+  amountPaise: z.string().regex(/^[1-9]\d{0,11}$/),
   idempotencyKey: z.string().trim().min(1).max(255),
 })
 
@@ -69,7 +68,10 @@ router.post('/', authenticateToken, async (req, res) => {
 
     return res.status(statusCode).json({
       success: false,
-      message: error.message,
+      message:
+        statusCode === 500
+          ? 'Unable to process the transaction'
+          : error.message,
     })
   }
 })
