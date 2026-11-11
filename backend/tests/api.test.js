@@ -7,10 +7,28 @@ const app = require('../src/server')
 const pool = require('../src/config/db')
 
 // ============================================
-// RESET ISOLATED TEST DATABASE
+// RESET ISOLATED TEST DATABASE - SAFELY
 // ============================================
 
 async function resetTestDatabase() {
+  // Verify the actual database before any destructive operation.
+  const dbCheck = await pool.query(
+    'SELECT current_database() AS database'
+  )
+
+  const currentDatabase = dbCheck.rows[0].database
+
+  if (currentDatabase !== 'ledgerline_test') {
+    throw new Error(
+      `SAFETY ERROR: Refusing to reset database "${currentDatabase}". Only ledgerline_test is allowed.`
+    )
+  }
+
+  console.log(
+    'Safety check passed: connected to ledgerline_test'
+  )
+
+  // Reset only the isolated test database.
   await pool.query(`
     TRUNCATE TABLE
       audit_events,

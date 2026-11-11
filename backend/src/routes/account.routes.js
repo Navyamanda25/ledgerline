@@ -1,3 +1,4 @@
+
 const express = require('express')
 const { authenticateToken } = require('../middleware/auth.middleware')
 const pool = require('../config/db')
@@ -9,14 +10,16 @@ const router = express.Router()
 // ============================================
 
 async function canViewAccount(user, accountId) {
-  // Administrators and auditors can view all customer accounts.
-  // The auditor role is read-only: it has no transaction access.
-  if (user.role === 'admin' || user.role === 'auditor') {
+  // Administrators can view all customer accounts.
+  if (user.role === 'admin') {
     return true
   }
 
-  // Account holders need explicit permission on the account.
-  if (user.role !== 'account_holder') {
+  // Account holders and auditors need explicit permissions.
+  if (
+    user.role !== 'account_holder' &&
+    user.role !== 'auditor'
+  ) {
     return false
   }
 
@@ -32,13 +35,19 @@ async function canViewAccount(user, accountId) {
     row => row.permission
   )
 
+  // Auditors have read-only access.
+  if (user.role === 'auditor') {
+    return permissions.includes('view')
+  }
+
+  // Account holder permissions.
   return permissions.some(permission =>
     ['view', 'transact', 'manage'].includes(permission)
   )
 }
 
 // ============================================
-// GET ACCOUNTS ACCESSIBLE TO THE LOGGED-IN USER
+// GET ACCOUNTS ACCESSIBLE TO LOGGED-IN USER
 // ============================================
 
 router.get('/', authenticateToken, async (req, res) => {
@@ -46,7 +55,8 @@ router.get('/', authenticateToken, async (req, res) => {
     const user = req.user
     let result
 
-    if (user.role === 'admin' || user.role === 'auditor') {
+    // Administrators can view all customer accounts.
+    if (user.role === 'admin') {
       result = await pool.query(
         `SELECT
            id,
@@ -63,9 +73,18 @@ router.get('/', authenticateToken, async (req, res) => {
       )
     }
 
-    else if (user.role === 'account_holder') {
+    // Account holders and auditors see only assigned accounts.
+    else if (
+      user.role === 'account_holder' ||
+      user.role === 'auditor'
+    ) {
+      const permissionFilter =
+        user.role === 'auditor'
+          ? "ap.permission = 'view'"
+          : "ap.permission IN ('view', 'transact', 'manage')"
+
       result = await pool.query(
-        `SELECT
+        `SELECT DISTINCT
            a.id,
            a.account_number,
            a.account_name,
@@ -78,7 +97,7 @@ router.get('/', authenticateToken, async (req, res) => {
          INNER JOIN account_permissions ap
            ON ap.account_id = a.id
          WHERE ap.user_id = $1
-           AND ap.permission IN ('view', 'transact', 'manage')
+           AND ${permissionFilter}
            AND a.account_type = 'customer'
          ORDER BY a.id`,
         [user.id]
@@ -110,7 +129,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
 // ============================================
 // GET ACCOUNT STATEMENT
-// Includes ledger entries and refused attempts.
+// Includes successful and refused attempts.
 // ============================================
 
 router.get('/:id/statement', authenticateToken, async (req, res) => {
@@ -150,7 +169,7 @@ router.get('/:id/statement', authenticateToken, async (req, res) => {
 
     const account = accountResult.rows[0]
 
-    // Check account-level authorization.
+    // Verify account-level authorization.
     const permitted = await canViewAccount(user, id)
 
     if (!permitted) {
@@ -182,8 +201,7 @@ router.get('/:id/statement', authenticateToken, async (req, res) => {
       [id]
     )
 
-    // Fetch refused attempts with the initiator's details.
-    // LEFT JOIN also preserves audit events if the user record is unavailable.
+    // Fetch refused transaction attempts.
     const auditResult = await pool.query(
       `SELECT
          ae.id,
@@ -239,7 +257,7 @@ router.get('/:id/statement', authenticateToken, async (req, res) => {
       sortOrder: 1,
     }))
 
-    // Combine all records chronologically.
+    // Combine entries chronologically.
     const statementEntries = [
       ...ledgerEntries,
       ...refusedEntries,
