@@ -1,4 +1,3 @@
-
 const pool = require('../config/db')
 const crypto = require('crypto')
 
@@ -9,9 +8,11 @@ const crypto = require('crypto')
 function validateAmount(amountPaise) {
   if (
     typeof amountPaise !== 'string' ||
-    !/^[1-9]\d*$/.test(amountPaise)
+    !/^[1-9]\d{0,11}$/.test(amountPaise)
   ) {
-    throw new Error('Amount must be a positive integer in paise')
+    throw new Error(
+      'Invalid amount: must be a positive integer in paise, up to 12 digits'
+    )
   }
 
   return BigInt(amountPaise)
