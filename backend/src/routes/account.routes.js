@@ -1,4 +1,3 @@
-
 const express = require('express')
 const { authenticateToken } = require('../middleware/auth.middleware')
 const pool = require('../config/db')
@@ -10,13 +9,14 @@ const router = express.Router()
 // ============================================
 
 async function canViewAccount(user, accountId) {
-  // Administrators can view customer accounts.
-  if (user.role === 'admin') {
+  // Administrators and auditors can view all customer accounts.
+  // The auditor role is read-only: it has no transaction access.
+  if (user.role === 'admin' || user.role === 'auditor') {
     return true
   }
 
-  // Account holders and auditors need explicit permissions.
-  if (!['account_holder', 'auditor'].includes(user.role)) {
+  // Account holders need explicit permission on the account.
+  if (user.role !== 'account_holder') {
     return false
   }
 
@@ -32,10 +32,6 @@ async function canViewAccount(user, accountId) {
     row => row.permission
   )
 
-  if (user.role === 'auditor') {
-    return permissions.includes('view')
-  }
-
   return permissions.some(permission =>
     ['view', 'transact', 'manage'].includes(permission)
   )
@@ -50,7 +46,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const user = req.user
     let result
 
-    if (user.role === 'admin') {
+    if (user.role === 'admin' || user.role === 'auditor') {
       result = await pool.query(
         `SELECT
            id,
@@ -83,28 +79,6 @@ router.get('/', authenticateToken, async (req, res) => {
            ON ap.account_id = a.id
          WHERE ap.user_id = $1
            AND ap.permission IN ('view', 'transact', 'manage')
-           AND a.account_type = 'customer'
-         ORDER BY a.id`,
-        [user.id]
-      )
-    }
-
-    else if (user.role === 'auditor') {
-      result = await pool.query(
-        `SELECT
-           a.id,
-           a.account_number,
-           a.account_name,
-           a.account_type,
-           a.balance_paise::text AS balance_paise,
-           a.currency,
-           a.is_active,
-           a.created_at
-         FROM accounts a
-         INNER JOIN account_permissions ap
-           ON ap.account_id = a.id
-         WHERE ap.user_id = $1
-           AND ap.permission = 'view'
            AND a.account_type = 'customer'
          ORDER BY a.id`,
         [user.id]
